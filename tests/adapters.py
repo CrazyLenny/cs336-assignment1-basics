@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
+import re
 from typing import IO, Any, BinaryIO
 
 import numpy.typing as npt
@@ -589,4 +590,6 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
+    # special_tokens, i.e., ['<|endoftext|>','<|pad|>']]
+    PATTERN = '|'.join([re.escape(token) for token in special_tokens])
     raise NotImplementedError

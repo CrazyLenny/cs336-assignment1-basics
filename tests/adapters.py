@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import TextIOWrapper
+from itertools import pairwise
 import os
 from collections.abc import Iterable
 import re
@@ -563,6 +565,45 @@ def get_tokenizer(
     raise NotImplementedError
 
 
+def split_with_special_tokens(
+        f: TextIOWrapper,
+        special_tokens: list[str],
+) -> list[str]:
+    content = f.read()
+    chunks = re.split(special_tokens, content)    
+    # print(chunks[:2])
+    return chunks
+
+
+
+def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[tuple[bytes, bytes], int]]:
+    def get_byte_pair_stats_single(chunk: str) -> dict[tuple[tuple[bytes, bytes], int]]:
+        byte_pair_stats_single = {}
+        # Get the byte-pair stats for a single chunk.
+        for pair in pairwise(chunk):
+            byte_pair_stats_single[pair] = byte_pair_stats_single.get(pair, 0) + 1
+        return byte_pair_stats_single
+
+    merged_byte_pair_stats = {}
+    for chunk in chunks:
+        # Get the byte-pair stats for a single chunk.
+        byte_pair_stasts_single = get_byte_pair_stats_single(chunk)
+        for pair, count in byte_pair_stasts_single.items():
+            merged_byte_pair_stats[pair] = merged_byte_pair_stats.get(pair, 0) + count
+
+    return merged_byte_pair_stats
+
+
+def merge_byte_pair(
+    byte_pair_stats: dict[tuple[tuple[bytes, bytes], int]],
+    vocab: dict[int, bytes],
+    num_of_merges: int,
+) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
+    merges = []
+    
+    return vocab, merges
+
+
 def run_train_bpe(
     input_path: str | os.PathLike,
     vocab_size: int,
@@ -591,5 +632,19 @@ def run_train_bpe(
                 Merges are ordered by order of creation.
     """
     # special_tokens, i.e., ['<|endoftext|>','<|pad|>']]
-    PATTERN = '|'.join([re.escape(token) for token in special_tokens])
+    PATTERN = '|'.join([re.escape(token) for token in special_tokens]).encode('utf-8')
+    vocab = {i: bytes([i]) for i in range(256)}
+    num_of_merges = vocab_size - len(vocab) - len(special_tokens)
+
+    with open(input_path, "rb") as f:
+        # Chunks is a list of strings, delimited by the special_tokens.
+        chunks = split_with_special_tokens(f, PATTERN)
+        # Get the byte-pair stats for each chunk, and merge them together.
+        # This is a list of tuples, where each tuple is (byte_pair, count).
+        byte_pair_stats = get_byte_pair_stats(chunks)
+
+        # print(sorted(byte_pair_stats.items(), key=lambda x: int(x[1]), reverse=True)[:5])        
+        # [((101, 32), 181491), ((104, 101), 148935), ((32, 116), 148857), ((100, 32), 138634), ((32, 97), 111510)]
+        vocab, merges = merge_byte_pair(byte_pair_stats, vocab, num_of_merges)
+
     raise NotImplementedError

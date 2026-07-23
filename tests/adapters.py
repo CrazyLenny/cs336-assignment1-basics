@@ -5,7 +5,7 @@ from itertools import pairwise
 import os
 from collections.abc import Iterable
 import re
-from typing import IO, Any, BinaryIO
+from typing import IO, Any, BinaryIO, Optional
 
 import numpy.typing as npt
 import torch
@@ -574,14 +574,29 @@ def split_with_special_tokens(
     # print(chunks[:2])
     return chunks
 
+class TokenNode:
+    # Use __slots__ to save memory
+    __slots__ = ("value", "prev", "next", "deleted")
+
+    def __init__(self, value: bytes):
+        self.value: bytes = value
+        self.prev: Optional[TokenNode] = None
+        self.next: Optional[TokenNode] = None
+        self.deleted: bool = False
+
+    def __repr__(self) -> str:
+        return f"TokenNode({self.value})"
 
 
 def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[bytes, bytes], int]:
+    # Generate the byte-pair count and location map at the same time
     def get_byte_pair_stats_single(chunk: str) -> dict[tuple[bytes, bytes], int]:
         byte_pair_stats_single = {}
+        loc_map_single = {}
         # Get the byte-pair stats for a single chunk.
         for pair in pairwise(chunk):
             byte_pair_stats_single[pair] = byte_pair_stats_single.get(pair, 0) + 1
+            # loc_map_single.setdefault(pair, []).append(cur_node)
         return byte_pair_stats_single
 
     merged_byte_pair_stats = {}

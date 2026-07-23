@@ -588,38 +588,44 @@ class TokenNode:
         return f"TokenNode({self.value})"
 
 
-def get_byte_pair_stats(chunks: list[bytes]) -> tuple[list[TokenNode], dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], TokenNode]]:
+def process_chunk(chunks: list[bytes]) -> tuple[list[TokenNode], dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], list[TokenNode]]]:
     # Generate the byte-pair count and location map at the same time
-    def get_byte_pair_stats_single(chunk: bytes) -> tuple[TokenNode, dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], list[TokeNode]]]:
+    def process_chunk_single(chunk: bytes) -> tuple[TokenNode, dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], list[TokenNode]]]:
         if not chunk:
-            return 
+            return None, {}, {}
         stats_single: dict[tuple[bytes, bytes], int] = {}
         loc_map_single: dict[tuple[bytes, bytes], list[TokenNode]] = {}
-        head = TokenNode(bytes[chunk[0]])
+        head = TokenNode(bytes([chunk[0]]))
         cur = head
         for b in chunk[1:]:
             # Create the new node
-            new_node = TokenNode(bytes[b])
+            new_node = TokenNode(bytes([b]))
             cur.next = new_node
             new_node.prev = cur
             # Update the stats
             pair = (cur.value, new_node.value)
-            stats_single[pair] = stats_signle.get(pair, 0) + 1
-            loc_map_single.set_default(pair, []).append(cur)
+            stats_single[pair] = stats_single.get(pair, 0) + 1
+            loc_map_single.setdefault(pair, []).append(cur)
             # Advance the cur node.
             cur = new_node
             
         return head, stats_single, loc_map_single
 
-    merged_byte_pair_stats = {}
-    merged_loc_map = {}
+    stats = {}
+    loc_map = {}
+    all_heads = []
     for chunk in chunks:
         # Get the byte-pair stats for a single chunk.
-        byte_pair_stasts_single = get_byte_pair_stats_single(chunk)
-        for pair, count in byte_pair_stasts_single.items():
-            merged_byte_pair_stats[pair] = merged_byte_pair_stats.get(pair, 0) + count
+        head, stats_single, loc_map_single = process_chunk_single(chunk)
+        if head is None:
+            continue
+        all_heads.append(head)
+        for pair, count in stats_single.items():
+            stats[pair] = stats.get(pair, 0) + count
+        for pair, nodes in loc_map_single.items():
+            loc_map.setdefault(pair, []).extend(nodes)
 
-    return merged_byte_pair_stats, merged_loc_map
+    return all_heads, stats, loc_map
 
 
 def merge_byte_pair(
@@ -670,10 +676,10 @@ def run_train_bpe(
         chunks = split_with_special_tokens(f, PATTERN)
         # Get the byte-pair stats for each chunk, and merge them together.
         # This is a list of tuples, where each tuple is (byte_pair, count).
-        byte_pair_stats, loc_map = get_byte_pair_stats(chunks)
+        all_heads, stats, loc_map = process_chunk(chunks)
 
         # print(sorted(byte_pair_stats.items(), key=lambda x: int(x[1]), reverse=True)[:5])        
         # [((101, 32), 181491), ((104, 101), 148935), ((32, 116), 148857), ((100, 32), 138634), ((32, 97), 111510)]
-        vocab, merges = merge_byte_pair(byte_pair_stats, vocab, num_of_merges)
+        vocab, merges = merge_byte_pair(stats, vocab, num_of_merges)
 
     raise NotImplementedError

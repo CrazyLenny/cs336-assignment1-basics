@@ -588,25 +588,38 @@ class TokenNode:
         return f"TokenNode({self.value})"
 
 
-def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[bytes, bytes], int]:
+def get_byte_pair_stats(chunks: list[bytes]) -> tuple[list[TokenNode], dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], TokenNode]]:
     # Generate the byte-pair count and location map at the same time
-    def get_byte_pair_stats_single(chunk: str) -> dict[tuple[bytes, bytes], int]:
-        byte_pair_stats_single = {}
-        loc_map_single = {}
-        # Get the byte-pair stats for a single chunk.
-        for pair in pairwise(chunk):
-            byte_pair_stats_single[pair] = byte_pair_stats_single.get(pair, 0) + 1
-            # loc_map_single.setdefault(pair, []).append(cur_node)
-        return byte_pair_stats_single
+    def get_byte_pair_stats_single(chunk: bytes) -> tuple[TokenNode, dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], list[TokeNode]]]:
+        if not chunk:
+            return 
+        stats_single: dict[tuple[bytes, bytes], int] = {}
+        loc_map_single: dict[tuple[bytes, bytes], list[TokenNode]] = {}
+        head = TokenNode(bytes[chunk[0]])
+        cur = head
+        for b in chunk[1:]:
+            # Create the new node
+            new_node = TokenNode(bytes[b])
+            cur.next = new_node
+            new_node.prev = cur
+            # Update the stats
+            pair = (cur.value, new_node.value)
+            stats_single[pair] = stats_signle.get(pair, 0) + 1
+            loc_map_single.set_default(pair, []).append(cur)
+            # Advance the cur node.
+            cur = new_node
+            
+        return head, stats_single, loc_map_single
 
     merged_byte_pair_stats = {}
+    merged_loc_map = {}
     for chunk in chunks:
         # Get the byte-pair stats for a single chunk.
         byte_pair_stasts_single = get_byte_pair_stats_single(chunk)
         for pair, count in byte_pair_stasts_single.items():
             merged_byte_pair_stats[pair] = merged_byte_pair_stats.get(pair, 0) + count
 
-    return merged_byte_pair_stats
+    return merged_byte_pair_stats, merged_loc_map
 
 
 def merge_byte_pair(
@@ -657,7 +670,7 @@ def run_train_bpe(
         chunks = split_with_special_tokens(f, PATTERN)
         # Get the byte-pair stats for each chunk, and merge them together.
         # This is a list of tuples, where each tuple is (byte_pair, count).
-        byte_pair_stats = get_byte_pair_stats(chunks)
+        byte_pair_stats, loc_map = get_byte_pair_stats(chunks)
 
         # print(sorted(byte_pair_stats.items(), key=lambda x: int(x[1]), reverse=True)[:5])        
         # [((101, 32), 181491), ((104, 101), 148935), ((32, 116), 148857), ((100, 32), 138634), ((32, 97), 111510)]

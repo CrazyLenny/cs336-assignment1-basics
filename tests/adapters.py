@@ -576,8 +576,8 @@ def split_with_special_tokens(
 
 
 
-def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[tuple[bytes, bytes], int]]:
-    def get_byte_pair_stats_single(chunk: str) -> dict[tuple[tuple[bytes, bytes], int]]:
+def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[bytes, bytes], int]:
+    def get_byte_pair_stats_single(chunk: str) -> dict[tuple[bytes, bytes], int]:
         byte_pair_stats_single = {}
         # Get the byte-pair stats for a single chunk.
         for pair in pairwise(chunk):
@@ -595,10 +595,11 @@ def get_byte_pair_stats(chunks: list[str]) -> dict[tuple[tuple[bytes, bytes], in
 
 
 def merge_byte_pair(
-    byte_pair_stats: dict[tuple[tuple[bytes, bytes], int]],
+    byte_pair_stats: dict[tuple[bytes, bytes], int],
     vocab: dict[int, bytes],
     num_of_merges: int,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
+    
     merges = []
     
     return vocab, merges
